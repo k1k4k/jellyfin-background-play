@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jellyfin Background Play</title>
+</head>
+<body>
+    <div id="BackgroundPlayConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="BackgroundPlayConfigForm">
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Jellyfin Background Play</h2>
+                        <p>
+                            Quitter le lecteur vidéo web (flèche retour, retour du navigateur) ne coupe plus la vidéo : elle continue en fond et une
+                            <b>mini barre de lecture</b>, la même que pour la musique, apparaît en bas de l'écran. Un clic sur la barre ramène au lecteur.
+                            Pour arrêter : bouton <span class="material-icons" style="vertical-align:middle">stop</span> à côté de pause, dans le lecteur
+                            comme dans la barre, ou la croix <span class="material-icons" style="vertical-align:middle">close</span> en haut à droite du lecteur.
+                        </p>
+                        <p>
+                            <i>Leaving the web video player (back arrow, browser back) no longer stops the video: it keeps playing and the same mini player bar
+                            as for music shows up at the bottom. Click the bar to get back to the player. To stop: the stop button next to pause, in the player
+                            and in the bar, or the cross at the top right of the player.</i>
+                        </p>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="chkEnabled" name="chkEnabled" type="checkbox" is="emby-checkbox" />
+                            <span>Activer / Enable</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Décocher rend au lecteur son comportement d'origine sans désinstaller le plugin. Effet au prochain rechargement de la page web (Ctrl+F5), sans redémarrage.
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <p id="BackgroundPlayStatus" class="fieldDescription"></p>
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Enregistrer / Save</span>
+                        </button>
+                    </div>
+
+                    <div class="verticalSection">
+                        <p class="fieldDescription">
+                            Le script est injecté dans <code>index.html</code> à la volée (aucune écriture sur le disque) et servi par
+                            <code>/BackgroundPlay/jellyfin-background-play.js</code>. Si la vidéo s'arrête toujours en quittant le lecteur : rechargez la page avec Ctrl+F5,
+                            puis vérifiez la console (F12) : <code>[BackgroundPlay] v… – playbackManager found</code>.
+                        </p>
+                        <p class="fieldDescription">
+                            Source, issues : <a is="emby-linkbutton" class="button-link" href="https://github.com/k1k4k/jellyfin-background-play" target="_blank" rel="noopener">github.com/k1k4k/jellyfin-background-play</a>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            (function () {
+                var pluginId = '03de372b-6a0e-4c93-a525-05e094642af6';
+                var page = document.querySelector('#BackgroundPlayConfigPage');
+
+                function loadStatus() {
+                    var el = page.querySelector('#BackgroundPlayStatus');
+                    ApiClient.fetch({ url: ApiClient.getUrl('BackgroundPlay/status'), type: 'GET', dataType: 'json' })
+                        .then(function (s) {
+                            el.textContent = 'Version ' + s.version + ' — ' + (s.enabled ? 'actif / enabled' : 'inactif / disabled');
+                        })
+                        .catch(function () { el.textContent = ''; });
+                }
+
+                page.addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        page.querySelector('#chkEnabled').checked = config.Enabled !== false;
+                        Dashboard.hideLoadingMsg();
+                        loadStatus();
+                    });
+                });
+
+                page.querySelector('#BackgroundPlayConfigForm').addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        config.Enabled = page.querySelector('#chkEnabled').checked;
+                        ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                            loadStatus();
+                        });
+                    });
+                    return false;
+                });
+            })();
+        </script>
+    </div>
+</body>
+</html>

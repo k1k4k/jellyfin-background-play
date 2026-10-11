@@ -1,0 +1,9 @@
+# copie locale du build jellyfin-web (banc de test)
+web-dev/
+
+# build
+Jellyfin.Plugin.BackgroundPlay/bin/
+Jellyfin.Plugin.BackgroundPlay/obj/
+dist/
+out/
+__pycache__/
