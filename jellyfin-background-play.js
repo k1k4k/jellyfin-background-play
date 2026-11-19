@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Background Play — v0.1.0
+ * Jellyfin Background Play — v0.1.1
  * https://github.com/k1k4k/jellyfin-background-play
  *
  * Quitter le lecteur vidéo web (flèche retour, touche Échap, retour du
@@ -31,7 +31,7 @@
     'use strict';
 
     if (window.__jfBackgroundPlay) return;
-    var VERSION = '0.1.0';
+    var VERSION = '0.1.1';
     window.__jfBackgroundPlay = { version: VERSION };
 
     var TAG = '[BackgroundPlay]';
@@ -644,32 +644,46 @@
             };
         }
 
-        // La page du lecteur se ferme : le stop qu'elle déclenche dans ses propres écouteurs
-        // (phase cible) est intercepté. Capture = avant eux, bouillonnement = après eux.
-        document.addEventListener('viewbeforehide', function (e) {
-            if (!isOsdView(e.target) || isTvLayout()) return;
-            hidingOsd = isLocalHtmlVideo(currentPlayer());
-        }, true);
-        document.addEventListener('viewbeforehide', function (e) {
-            if (isOsdView(e.target)) hidingOsd = false;
-        }, false);
+        // Événements de vue (viewbeforehide, viewbeforeshow, viewshow) : jellyfin-web les envoie sur
+        // l'élément de la page. En passant d'une application à l'autre (bibliothèque <-> tableau de
+        // bord, gestionnaire de métadonnées…), React a déjà retiré la page du document à ce moment :
+        // l'événement ne remonte jusqu'à aucun écouteur de document. On le prend donc à l'envoi.
+        var origDispatch = EventTarget.prototype.dispatchEvent;
+        EventTarget.prototype.dispatchEvent = function (event) {
+            var type = event && event.type;
+            if (type !== 'viewbeforehide' && type !== 'viewbeforeshow' && type !== 'viewshow') {
+                return origDispatch.apply(this, arguments);
+            }
+            var osd = isOsdView(this);
+            // la page du lecteur se ferme : le stop déclenché par ses propres écouteurs est intercepté
+            if (type === 'viewbeforehide' && osd && !isTvLayout()) hidingOsd = isLocalHtmlVideo(currentPlayer());
+            try {
+                return origDispatch.apply(this, arguments);
+            } finally {
+                if (type === 'viewbeforehide') {
+                    if (osd) hidingOsd = false;
+                } else {
+                    try { onViewEvent(type, this, event, osd); } catch (e) { console.error(TAG, e); }
+                }
+            }
+        };
+    }
 
-        document.addEventListener('viewbeforeshow', function (e) {
-            var detail = e.detail || {};
-            var options = detail.options || {};
-            if (isOsdView(e.target)) {
+    function onViewEvent(type, view, event, osd) {
+        if (type === 'viewbeforeshow') {
+            if (osd) {
                 // retour au lecteur : il retrouve sa page sans défilement, comme au lancement
                 if (mini) document.body.classList.add('hide-scroll');
                 exitMini();
                 return;
             }
+            var options = (event.detail || {}).options || {};
             mediaControlAllowed = options.enableMediaControl !== false;
             updateVisibility();
-        });
-        document.addEventListener('viewshow', function (e) {
-            if (isOsdView(e.target)) setupOsd(e.target);
+        } else if (type === 'viewshow') {
+            if (osd) setupOsd(view);
             else updateVisibility();
-        });
+        }
     }
 
     /* ------------------------------------------------------------------ */
@@ -709,7 +723,8 @@
         // retirée quand la page du lecteur se cache.
         var bottom = page.querySelector('.videoOsdBottom');
         var sync = function () {
-            var shown = !!getOsdPage();
+            var shown = page.isConnected && !page.classList.contains('hide');
+            if (!shown && getOsdPage()) return;   // une autre page du lecteur a pris le relais
             close.classList.toggle('hide', !shown);
             document.documentElement.classList.toggle('jfBgOsdOpen', shown);
             close.classList.toggle('jfBgOsdClose-hidden', !!bottom && bottom.classList.contains('videoOsdBottom-hidden'));
@@ -719,6 +734,9 @@
         if (bottom) osdObserver.observe(bottom, { attributes: true, attributeFilter: ['class'] });
         osdObserver.observe(page, { attributes: true, attributeFilter: ['class'] });
         sync();
+        // page pas encore rattachée (retour depuis le tableau de bord) : on revérifie un peu après
+        setTimeout(sync, 0);
+        setTimeout(sync, 500);
 
         if (!page.__jfBgHideBound) {
             page.__jfBgHideBound = true;
