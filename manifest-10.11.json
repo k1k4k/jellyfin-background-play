@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-background-play/main/icon.png",
     "versions": [
       {
+        "version": "0.1.1.0",
+        "changelog": "- Fixed: after visiting the dashboard (or the metadata manager and other admin pages), going back from the player stopped the video again, and the Stop button and close cross were missing from the player.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-background-play/releases/download/v0.1.1/jellyfin-background-play_0.1.1.0_jf10.zip",
+        "checksum": "f95d9083fae65868808858449b04b36c",
+        "timestamp": "2026-11-19T18:41:59Z"
+      },
+      {
         "version": "0.1.0.0",
         "changelog": "- Leaving the video player (back arrow, browser back) no longer stops the video: it keeps playing in the background.\n- The same mini player bar as for music shows up at the bottom: play/pause, stop, previous/next episode, seek, volume. Click it to get back to the player.\n- The next episode starts in the background without bringing the player back.\n- New Stop button next to pause in the player, and a close cross at its top right, to stop the video and leave.",
         "targetAbi": "10.11.0.0",
